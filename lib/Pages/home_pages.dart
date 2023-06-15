@@ -16,9 +16,98 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  final titleController = TextEditingController();
+  final descController = TextEditingController();
   int done = 0;
   List<Todo> myTodos = [];
   bool isloading = true;
+
+  @override
+  void dispose() {
+    // Clean up the controller when the widget is disposed.
+    titleController.dispose();
+    descController.dispose();
+    super.dispose();
+  }
+
+  void _showModel() {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return Container(
+          height: MediaQuery.of(context).size.height / 2,
+          child: Center(
+            child: Column(
+              children: [
+                const SizedBox(
+                  height: 10,
+                ),
+                const Text(
+                  "Add Your To//Do",
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(
+                  height: 10,
+                ),
+                TextField(
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    labelText: 'Title',
+                  ),
+                  controller: titleController,
+                ),
+                const SizedBox(
+                  height: 10,
+                ),
+                TextField(
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    labelText: 'Description',
+                  ),
+                  controller: descController,
+                ),
+                const SizedBox(
+                  height: 10,
+                ),
+                ElevatedButton(
+                  onPressed: () => _postData(
+                      title: titleController.text, desc: descController.text),
+                  child: const Text("Add"),
+                )
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _postData({String title = '', String desc = ''}) async {
+    try {
+      http.Response response = await http.post(
+        Uri.parse(api),
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+        body: jsonEncode(<String, dynamic>{
+          'title': title,
+          'desc': desc,
+          'isDone': false,
+        }),
+      );
+      if (response.statusCode == 201) {
+        setState(() {
+          myTodos = [];
+        });
+        fetchdata();
+      } else {
+        print("Error is created while posting!");
+      }
+    } catch (e) {
+      print("Error is $e");
+    }
+  }
+
   void fetchdata() async {
     try {
       http.Response response = await http.get(Uri.parse(api));
@@ -51,12 +140,26 @@ class _HomePageState extends State<HomePage> {
     super.initState();
   }
 
+  void deleteTodo(String id) async {
+    try {
+      http.Response response = await http.delete(Uri.parse(api + '/' + id));
+      setState(() {
+        myTodos = [];
+      });
+      fetchdata();
+    } catch (e) {
+      print(e);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        // backgroundColor: const Color.fromARGB(255, 0, 0, 0),
-        appBar: customAppBar(),
-        body: Column(
+      // backgroundColor: const Color.fromARGB(255, 0, 0, 0),
+      appBar: customAppBar(),
+      body: SingleChildScrollView(
+        scrollDirection: Axis.vertical,
+        child: Column(
           children: [
             PieChart(
               dataMap: {
@@ -66,10 +169,11 @@ class _HomePageState extends State<HomePage> {
             ),
             isloading
                 ? const CircularProgressIndicator()
-                : ListView(
+                : Column(
                     children: myTodos.map(
                       (e) {
                         return TodoContainer(
+                          onPress: () => deleteTodo(e.id.toString()),
                           id: e.id,
                           title: e.title,
                           desc: e.desc,
@@ -79,6 +183,14 @@ class _HomePageState extends State<HomePage> {
                     ).toList(),
                   ),
           ],
-        ));
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          _showModel();
+        },
+        child: const Icon(Icons.add),
+      ),
+    );
   }
 }
